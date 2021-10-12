@@ -1,4 +1,4 @@
-use std::{ops::{Add, Sub, Mul}};
+use std::{ops::{Add, Sub, Mul, Div}};
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash)]
 pub struct FieldElement(isize, usize);
@@ -71,6 +71,22 @@ impl Mul for FieldElement {
             );
         }
         Self((self.0 * other.0).rem_euclid(self.1 as isize), self.1)
+    }
+}
+
+impl Div for FieldElement {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self::Output {
+        if self.1 != other.1 {
+            panic!(
+                "Expect {} == {}, found {} != {}", 
+                self.1, self.1,
+                self.1, other.1,
+            );
+        }
+        let num = (self.0 * other.0.pow(other.1 as u32 - 2)) % other.1 as isize;
+        Self(num, self.1)
     }
 }
 
@@ -153,6 +169,16 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn div_field_elements() {
+        let prime: usize = 19;
+        let a = FieldElement(2, prime);
+        let b = FieldElement(7, prime);
+        let c = FieldElement(5, prime);
+        assert_eq!(a / b, FieldElement(3, prime));
+        assert_eq!(b / c, FieldElement(9, prime));
     }
 
 
