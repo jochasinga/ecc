@@ -1,6 +1,6 @@
 use std::{ops::{Add, Sub, Mul, Div}};
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Debug, Copy, Clone, Hash)]
 pub struct FieldElement(isize, usize);
 
 impl FieldElement {
@@ -65,7 +65,7 @@ impl Mul for FieldElement {
     fn mul(self, other: Self) -> Self::Output {
         if self.1 != other.1 {
             panic!(
-                "Expect {} == {}, found {} != {}", 
+                "Expect {} == {}, found {} != {}",
                 self.1, self.1,
                 self.1, other.1,
             );
@@ -80,7 +80,7 @@ impl Div for FieldElement {
     fn div(self, other: Self) -> Self::Output {
         if self.1 != other.1 {
             panic!(
-                "Expect {} == {}, found {} != {}", 
+                "Expect {} == {}, found {} != {}",
                 self.1, self.1,
                 self.1, other.1,
             );
@@ -92,6 +92,8 @@ impl Div for FieldElement {
 
 #[cfg(test)]
 mod tests {
+
+    use std::{collections::HashSet, convert::TryInto};
 
     use crate::*;
 
@@ -142,6 +144,41 @@ mod tests {
             FieldElement::new(3, prime)?,
         );
         assert_eq!(a * b, FieldElement::new(15, prime)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn fermat_theorem() -> Result<(), String> {
+        let k = [1, 3, 7, 13, 18];
+        let p = 19;
+        let mut result_set = HashSet::new();
+        let ns: Vec<isize> = (0..p).collect();
+
+        for k in k {
+            let mut res = vec![];
+            let kf = FieldElement::new(k, p as usize)?;
+            for n in &ns {
+                let nf = FieldElement::new(*n as isize, p as usize)?;
+                let a = kf * nf;
+                res.push(a);
+            }
+            res.sort();
+            result_set.insert(res);
+        }
+
+        assert_eq!(result_set.len(), 1);
+
+        let r = result_set
+            .into_iter()
+            .next()
+            .unwrap();
+
+        let test: Vec<isize> = r.iter()
+            .map(|n| { n.num() })
+            .collect();
+
+        assert_eq!(test, ns);
 
         Ok(())
     }
