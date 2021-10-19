@@ -21,11 +21,10 @@ impl FieldElement {
     }
 
     fn pow(self, exp: u32) -> Self {
-        let mut total = self.0;
-        for _ in 0..exp {
-            total = (total * self.0).rem_euclid(self.1 as isize);
-        }
-        FieldElement(total, self.1)
+        let n = self.0;
+        let p = self.1;
+        let base = n.pow(exp).rem_euclid(p as isize);
+        FieldElement(base, p)
     }
 }
 
@@ -93,7 +92,7 @@ impl Div for FieldElement {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashSet, convert::TryInto};
+    use std::collections::HashSet;
 
     use crate::*;
 
@@ -184,6 +183,21 @@ mod tests {
     }
 
     #[test]
+    fn test_exponential() -> Result<(), String> {
+        let p: usize = 31;
+        let e: u32 = 2;
+        let base: isize = 10;
+        let result: isize = base.pow(e).rem_euclid(p as isize);
+
+        let expected = FieldElement::new(result, p)?;
+        let got = FieldElement::new(base, p)?.pow(e);
+
+        assert_eq!(got, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn exp_field_elements() -> Result<(), String> {
         let primes: Vec<usize> = vec![7, 11, 17, 31];
         for prime in &primes {
@@ -217,6 +231,4 @@ mod tests {
         assert_eq!(a / b, FieldElement(3, prime));
         assert_eq!(b / c, FieldElement(9, prime));
     }
-
-
 }
