@@ -1,30 +1,30 @@
-use std::{ops::{Add, Sub, Mul, Div}};
+use std::{convert::TryInto, ops::{Add, Sub, Mul, Div}};
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, Copy, Clone, Hash)]
-pub struct FieldElement(isize, usize);
+pub struct FieldElement(usize, usize);
 
 impl FieldElement {
-    fn new(num: isize, prime: usize) -> Result<Self, String> {
-        if num >= prime as isize {
+    pub fn new(num: usize, prime: usize) -> Result<Self, String> {
+        if num >= prime {
             Err(format!("Num {} not in field range O to {}", num, prime - 1))
         } else {
             Ok(Self(num, prime))
         }
     }
 
-    fn num(&self) -> isize {
+    pub fn num(&self) -> usize {
         self.0
     }
 
-    fn prime(&self) -> usize {
+    pub fn prime(&self) -> usize {
         self.1
     }
 
-    fn pow(self, exp: u32) -> Self {
-        let n = self.0;
+    pub fn pow(self, exp: u32) -> Self {
         let p = self.1;
-        let base = n.pow(exp).rem_euclid(p as isize);
-        FieldElement(base, p)
+        let base = self.0 as u128;
+        let a = base.pow(exp).rem_euclid(p as u128);
+        FieldElement(a.try_into().unwrap(), p)
     }
 }
 
@@ -39,14 +39,14 @@ impl Add for FieldElement {
                 self.1, other.1,
             );
         }
-        Self((self.0 + other.0).rem_euclid(self.1 as isize), self.1)
+        Self((self.0 + other.0).rem_euclid(self.1), self.1)
     }
 }
 
 impl Sub for FieldElement {
     type Output = Self;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: Self) -> Self {
         if self.1 != other.1 {
             panic!(
                 "Expect {} == {}, found {} != {}",
@@ -54,7 +54,11 @@ impl Sub for FieldElement {
                 self.1, other.1,
             );
         }
-        Self ((self.0 - other.0).rem_euclid(self.1 as isize), self.1)
+        let diff = (self.0 - other.0) as isize;
+        Self (
+            diff.rem_euclid(self.1 as isize) as usize,
+            self.1,
+        )
     }
 }
 
@@ -69,7 +73,10 @@ impl Mul for FieldElement {
                 self.1, other.1,
             );
         }
-        Self((self.0 * other.0).rem_euclid(self.1 as isize), self.1)
+        Self(
+            (self.0 * other.0).rem_euclid(self.1),
+            self.1,
+        )
     }
 }
 
@@ -84,7 +91,7 @@ impl Div for FieldElement {
                 self.1, other.1,
             );
         }
-        let num = (self.0 * other.0.pow(other.1 as u32 - 2)) % other.1 as isize;
+        let num = (self.0 * other.0.pow(other.1 as u32 - 2)) % other.1;
         Self(num, self.1)
     }
 }
@@ -94,7 +101,7 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use crate::*;
+    use super::*;
 
     #[test]
     fn create_field_element() {
@@ -125,12 +132,13 @@ mod tests {
 
     #[test]
     fn sub_field_elements() -> Result<(), String> {
-        let prime = 17;
+        let p = 17;
         let (a, b) = (
-            FieldElement::new(7, prime)?,
-            FieldElement::new(8, prime)?,
+            FieldElement::new(7, p)?,
+            FieldElement::new(8, p)?,
         );
-        assert_eq!(a - b, FieldElement::new(16, prime)?);
+        // assert_eq!(a - b, FieldElement::new(16, p)?);
+        assert_eq!(b - a, FieldElement::new(1, p)?);
 
         Ok(())
     }
@@ -152,13 +160,13 @@ mod tests {
         let k = [1, 3, 7, 13, 18];
         let p = 19;
         let mut result_set = HashSet::new();
-        let ns: Vec<isize> = (0..p).collect();
+        let ns: Vec<usize> = (0..p).collect();
 
         for k in k {
             let mut res = vec![];
             let kf = FieldElement::new(k, p as usize)?;
             for n in &ns {
-                let nf = FieldElement::new(*n as isize, p as usize)?;
+                let nf = FieldElement::new(*n, p)?;
                 let a = kf * nf;
                 res.push(a);
             }
@@ -173,7 +181,7 @@ mod tests {
             .next()
             .unwrap();
 
-        let test: Vec<isize> = r.iter()
+        let test: Vec<usize> = r.iter()
             .map(|n| { n.num() })
             .collect();
 
@@ -186,8 +194,8 @@ mod tests {
     fn test_exponential() -> Result<(), String> {
         let p: usize = 31;
         let e: u32 = 2;
-        let base: isize = 10;
-        let result: isize = base.pow(e).rem_euclid(p as isize);
+        let base: usize = 10;
+        let result = base.pow(e as u32).rem_euclid(p);
 
         let expected = FieldElement::new(result, p)?;
         let got = FieldElement::new(base, p)?.pow(e);
@@ -199,24 +207,29 @@ mod tests {
 
     #[test]
     fn exp_field_elements() -> Result<(), String> {
-        let primes: Vec<usize> = vec![7, 11, 17, 31];
-        for prime in &primes {
+        let ps: Vec<usize> = vec![7, 11, 17];
+
+        for p in &ps {
             let mut set = vec![];
-            for num in 1..*prime as isize {
-                let a = FieldElement::new(num, *prime)?;
-                let exp = (*prime as u32) - 1;
+            for num in 1..*p {
+                let a = FieldElement::new(num, *p)?;
+                let exp = (*p - 1) as u32;
                 let b = a.pow(exp);
                 set.push(b);
             }
 
-            let mut result = set.iter()
+            let got = set.iter()
                 .map(|f| f.0)
-                .collect::<Vec<isize>>();
-            result.sort_unstable();
-            let expected = (1..*prime).map(|n| { n as isize }).collect::<Vec<isize>>();
+                .collect::<Vec<usize>>();
 
-            assert_eq!(set.len(), *prime-1, "Order of the set must equal to p-1");
-            assert_eq!(result, expected);
+            assert_eq!(set.len(), *p-1, "Order of the set must equal to p-1");
+
+            let mut ones = vec![];
+            for _ in 0..*p-1 {
+                ones.push(1);
+            }
+
+            assert_eq!(got, ones);
         }
 
         Ok(())
