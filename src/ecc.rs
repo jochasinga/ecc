@@ -96,20 +96,79 @@ impl Div for FieldElement {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub struct Point {
-    pub(crate) x: isize,
-    pub(crate) y: isize,
+    pub(crate) x: Option<isize>,
+    pub(crate) y: Option<isize>,
     pub(crate) a: isize,
     pub(crate) b: isize,
 }
 
+fn find_slope(p1: Point, p2: Point) -> Option<isize> {
+    match (p1.x, p1.y, p2.x, p2.y) {
+        (Some(x1), Some(y1), Some(x2), Some(y2)) =>
+            Some((y2-y1)/(x2-x1)),
+        _ => None,
+    }
+}
+
+fn find_sum_of_points(p1: Point, p2: Point) -> Option<Point> {
+    match find_slope(p1, p2) {
+        None => None,
+        Some(s) => {
+            let x3 = s.pow(2) - p1.x.unwrap() - p2.x.unwrap();
+            let y3 = s * (p1.x.unwrap() - x3) - p1.y.unwrap();
+            let Point{a, b, ..} = p1;
+            Some(Point {
+                x: Some(x3),
+                y: Some(y3),
+                a,
+                b,
+            })
+        }
+    }
+}
+
 impl Point {
-    pub fn new(x: isize, y: isize, a: isize, b: isize) -> Result<Self, String> {
-        if y.pow(2) != x.pow(3) + a * x + b {
-            Err(format!("({}, {}) is not on the curve", x, y))
-        } else {
-            Ok(Self { a, b, x, y })
+    pub fn new(x: Option<isize>, y: Option<isize>, a: isize, b: isize) -> Result<Self, String> {
+        let points_on_curve = |x: isize, y: isize| {
+            y.pow(2) == x.pow(3) + a * x + b
+        };
+
+        match (x, y) {
+            (None, None) => Ok(Point { x, y, a, b }),
+            (Some(x),Some(y)) if points_on_curve(x, y) =>
+                Ok(Self {
+                    x: Some(x),
+                    y: Some(y),
+                    a,
+                    b,
+                }),
+            (Some(x), Some(y)) if !points_on_curve(x, y) =>
+                Err(format!("({}, {}) is not on the curve", x, y)),
+            (x, y) =>
+                Err(format!("({:?}, {:?}) is not on the curve", x, y)),
+        }
+    }
+}
+
+impl Add for Point {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        if self.a != other.a && self.b != other.b {
+            panic!("Points {:?}, {:?} are not on the same curve", self, other);
+        }
+
+        match (self.x, other.x) {
+            (None, _) => other,
+            (_, None) => self,
+            _ => {
+                match find_sum_of_points(self, other) {
+                    None => panic!("Points {:?}, {:?} are not on the same curve", self, other),
+                    Some(p) => p,
+                }
+            }
         }
     }
 }

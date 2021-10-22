@@ -151,17 +151,50 @@ mod tests {
 
     #[test]
     fn create_point() -> Result<(), String> {
-        let (x, y, a, b) = (-1, -1, 5, 7);
+        let (x, y, a, b) = (Some(-1), Some(-1), 5, 7);
         match Point::new(x, y, a, b) {
             Ok(p) => assert_eq!(p, Point { a, b, x, y }),
             _ => assert!(false),
         }
 
-        let (x, y, a, b) = (-1, -2, 5, 7);
+        let (x, y, a, b) = (Some(-1), Some(-2), 5, 7);
         match Point::new(x, y, a, b) {
             Err(_) => assert!(true),
             _ => assert!(false),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn point_addition() -> Result<(), String> {
+        let p1 = Point::new(Some(-1), Some(-1), 5, 7)?;
+        let inf = Point::new(None, None, 5, 7)?;
+
+        let s = p1.clone() + inf.clone();
+        assert_eq!(s, Point {
+            x: Some(-1),
+            y: Some(-1),
+            a: 5,
+            b: 7,
+        });
+
+        let p2 = Point::new(Some(-1), Some(1), 5, 7)?;
+        let s = p2.clone() + inf;
+        assert_eq!(s, Point {
+            x: Some(-1),
+            y: Some(1),
+            a: 5,
+            b: 7,
+        });
+
+        // let s = p1 + p2;
+        // assert_eq!(s, Point {
+        //     x: None,
+        //     y: None,
+        //     a: 5,
+        //     b: 7,
+        // });
 
         Ok(())
     }
