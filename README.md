@@ -1,3 +1,3 @@
 # ecc
 
-Finite field and elliptic curve things.
+Testbed for Elliptic curve cryptography.

@@ -1,77 +1,77 @@
 pub mod ecc;
+pub use num::{BigInt, BigUint};
 
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashSet;
-
+    use super::*;
     use crate::ecc::*;
+    use anyhow::Result;
+    use std::collections::HashSet;
 
     #[test]
     fn create_field_element() {
-        let (num, prime) = (13, 13);
-        match FieldElement::new(num, prime) {
-            Err(s) => assert_eq!(s, format!("Num {} not in field range O to {}", num, prime - 1)),
-            _ => assert!(false),
-        }
-
-        let (num, prime) = (7, 13);
-        match FieldElement::new(num, prime) {
-            Ok(fe) => assert_eq!(fe, FieldElement(num, prime)),
+        let (num, prime): (u32, u32) = (13, 13);
+        match FieldElement::new(BigUint::from(num), BigUint::from(prime)) {
+            Err(_) => assert!(true, "Should return an error"),
             _ => assert!(false),
         }
     }
 
     #[test]
-    fn add_field_elements() -> Result<(), String> {
-        let (a, b) = (
-            FieldElement::new(7, 17)?,
-            FieldElement::new(8, 17)?,
+    fn add_field_elements() -> Result<()> {
+        let (mut a, b) = (
+            FieldElement::new(BigUint::from(7_u32), BigUint::from(17_u32))?,
+            FieldElement::new(BigUint::from(8_u32), BigUint::from(17_u32))?,
         );
-
-        assert_eq!(a + b, FieldElement::new(15, 17)?);
-
+        let expect = FieldElement::new(BigUint::from(15_u32), BigUint::from(17_u32))?;
+        assert_eq!(a.clone() + b.clone(), expect);
+        a += b;
+        assert_eq!(a, expect);
         Ok(())
     }
 
     #[test]
-    fn sub_field_elements() -> Result<(), String> {
+    fn sub_field_elements() -> Result<()> {
         let p = 17;
-        let (a, b) = (
-            FieldElement::new(7, p)?,
-            FieldElement::new(8, p)?,
+        let (a, mut b) = (
+            FieldElement::new(BigUint::from(7_u32), BigUint::from(p as u32))?,
+            FieldElement::new(BigUint::from(8_u32), BigUint::from(p as u32))?,
         );
-        // assert_eq!(a - b, FieldElement::new(16, p)?);
-        assert_eq!(b - a, FieldElement::new(1, p)?);
-
+        let expect = FieldElement::new(BigUint::from(1_u32), BigUint::from(p as u32))?;
+        assert_eq!(b.clone() - a.clone(), expect);
+        b -= a;
+        assert_eq!(b, expect);
         Ok(())
     }
 
     #[test]
-    fn mul_field_elements() -> Result<(), String> {
+    fn mul_field_elements() -> Result<()> {
         let prime = 19;
-        let (a, b) = (
-            FieldElement::new(5, prime)?,
-            FieldElement::new(3, prime)?,
+        let (mut a, b) = (
+            FieldElement::new(BigUint::from(5_u32), BigUint::from(prime as u32))?,
+            FieldElement::new(BigUint::from(3_u32), BigUint::from(prime as u32))?,
         );
-        assert_eq!(a * b, FieldElement::new(15, prime)?);
-
+        let expect = FieldElement::new(BigUint::from(15_u32), BigUint::from(prime as u32))?;
+        assert_eq!(a.clone() * b.clone(), expect);
+        a *= b;
+        assert_eq!(a, expect);
         Ok(())
     }
 
     #[test]
-    fn fermat_theorem() -> Result<(), String> {
+    fn fermat_theorem() -> Result<()> {
         let k = [1, 3, 7, 13, 18];
         let p = 19;
         let mut result_set = HashSet::new();
-        let ns: Vec<usize> = (0..p).collect();
+        let ns: Vec<BigUint> = (0..p).map(|n| BigUint::from(n as u32)).collect();
 
         for k in k {
             let mut res = vec![];
-            let kf = FieldElement::new(k, p as usize)?;
+            let kf = FieldElement::new(BigUint::from(k as u32), BigUint::from(p as u32))?;
             for n in &ns {
-                let nf = FieldElement::new(*n, p)?;
-                let a = kf * nf;
+                let nf = FieldElement::new(n.clone(), BigUint::from(p as u32))?;
+                let a = kf.clone() * nf;
                 res.push(a);
             }
             res.sort();
@@ -80,14 +80,9 @@ mod tests {
 
         assert_eq!(result_set.len(), 1);
 
-        let r = result_set
-            .into_iter()
-            .next()
-            .unwrap();
+        let r = result_set.into_iter().next().unwrap();
 
-        let test: Vec<usize> = r.iter()
-            .map(|n| { n.num() })
-            .collect();
+        let test: Vec<BigUint> = r.iter().map(|n| n.num.clone()).collect();
 
         assert_eq!(test, ns);
 
@@ -95,14 +90,13 @@ mod tests {
     }
 
     #[test]
-    fn test_exponential() -> Result<(), String> {
+    fn test_exponential() -> Result<()> {
         let p: usize = 31;
         let e: u32 = 2;
         let base: usize = 10;
         let result = base.pow(e as u32).rem_euclid(p);
-
-        let expected = FieldElement::new(result, p)?;
-        let got = FieldElement::new(base, p)?.pow(e);
+        let expected = FieldElement::new(BigUint::from(result), BigUint::from(p))?;
+        let got = FieldElement::new(BigUint::from(base), BigUint::from(p))?.pow(BigUint::from(e));
 
         assert_eq!(got, expected);
 
@@ -110,27 +104,25 @@ mod tests {
     }
 
     #[test]
-    fn exp_field_elements() -> Result<(), String> {
+    fn exp_field_elements() -> Result<()> {
         let ps: Vec<usize> = vec![7, 11, 17];
 
         for p in &ps {
             let mut set = vec![];
             for num in 1..*p {
-                let a = FieldElement::new(num, *p)?;
+                let a = FieldElement::new(BigUint::from(num as u32), BigUint::from(*p as u32))?;
                 let exp = (*p - 1) as u32;
-                let b = a.pow(exp);
+                let b = a.pow(BigUint::from(exp));
                 set.push(b);
             }
 
-            let got = set.iter()
-                .map(|f| f.0)
-                .collect::<Vec<usize>>();
+            let got: Vec<BigUint> = set.iter().map(|f| f.num.clone()).collect();
 
-            assert_eq!(set.len(), *p-1, "Order of the set must equal to p-1");
+            assert_eq!(set.len(), *p - 1, "Order of the set must equal to p-1");
 
             let mut ones = vec![];
-            for _ in 0..*p-1 {
-                ones.push(1);
+            for _ in 0..*p - 1 {
+                ones.push(BigUint::from(1_u32));
             }
 
             assert_eq!(got, ones);
@@ -140,62 +132,73 @@ mod tests {
     }
 
     #[test]
-    fn div_field_elements() {
-        let prime: usize = 19;
-        let a = FieldElement(2, prime);
-        let b = FieldElement(7, prime);
-        let c = FieldElement(5, prime);
-        assert_eq!(a / b, FieldElement(3, prime));
-        assert_eq!(b / c, FieldElement(9, prime));
-    }
+    fn div_field_elements() -> Result<()> {
+        let p = BigUint::from(19_u32);
+        let mut a = FieldElement::new(BigUint::from(2_u32), p.clone())?;
+        let mut b = FieldElement::new(BigUint::from(7_u32), p.clone())?;
+        let c = FieldElement::new(BigUint::from(5_u32), p.clone())?;
 
-    #[test]
-    fn create_point() -> Result<(), String> {
-        let (x, y, a, b) = (Some(-1), Some(-1), 5, 7);
-        match Point::new(x, y, a, b) {
-            Ok(p) => assert_eq!(p, Point { a, b, x, y }),
-            _ => assert!(false),
-        }
+        let mut expect = FieldElement::new(BigUint::from(3_u32), p.clone())?;
+        assert_eq!(a.clone() / b.clone(), expect, "f2 / f7 must equal to f3",);
 
-        let (x, y, a, b) = (Some(-1), Some(-2), 5, 7);
-        match Point::new(x, y, a, b) {
-            Err(_) => assert!(true),
-            _ => assert!(false),
-        }
+        a /= b.clone();
+        assert_eq!(a, expect);
+
+        expect = FieldElement::new(BigUint::from(9_u32), p.clone())?;
+        assert_eq!(b.clone() / c.clone(), expect, "f7 / f5 must equal to f9",);
+
+        b /= c;
+        assert_eq!(b, expect);
 
         Ok(())
     }
 
     #[test]
-    fn point_addition() -> Result<(), String> {
-        let p1 = Point::new(Some(-1), Some(-1), 5, 7)?;
-        let inf = Point::new(None, None, 5, 7)?;
+    fn create_point() {
+        let x = Some(BigInt::from(-1));
+        let y = Some(BigInt::from(-1));
+        let a = BigInt::from(5);
+        let b = BigInt::from(7);
 
-        let s = p1.clone() + inf.clone();
-        assert_eq!(s, Point {
-            x: Some(-1),
-            y: Some(-1),
-            a: 5,
-            b: 7,
-        });
+        let p = Point::new(x.clone(), y.clone(), a.clone(), b.clone());
+        assert!(p.is_some());
+    }
 
-        let p2 = Point::new(Some(-1), Some(1), 5, 7)?;
-        let s = p2.clone() + inf;
-        assert_eq!(s, Point {
-            x: Some(-1),
-            y: Some(1),
-            a: 5,
-            b: 7,
-        });
+    #[test]
+    fn point_addition_with_identity() {
+        let (a, b) = (BigInt::from(5), BigInt::from(7));
+        let p1 = Point::new(
+            Some(BigInt::from(-1)),
+            Some(BigInt::from(-1)),
+            a.clone(),
+            b.clone(),
+        )
+        .unwrap();
+        let id = Point::identity(a, b);
+        let s1 = p1.clone() + id.clone();
+        let s2 = id + p1.clone();
+        assert_eq!(s1, p1);
+        assert_eq!(s2, p1);
+    }
 
-        // let s = p1 + p2;
-        // assert_eq!(s, Point {
-        //     x: None,
-        //     y: None,
-        //     a: 5,
-        //     b: 7,
-        // });
-
-        Ok(())
+    #[test]
+    fn point_additive_inverse() {
+        let (a, b) = (BigInt::from(5), BigInt::from(7));
+        let p1 = Point::new(
+            Some(BigInt::from(-1)),
+            Some(BigInt::from(-1)),
+            a.clone(),
+            b.clone(),
+        )
+        .unwrap();
+        let p2 = Point::new(
+            Some(BigInt::from(-1)),
+            Some(BigInt::from(1)),
+            a.clone(),
+            b.clone(),
+        )
+        .unwrap();
+        let s = p1.clone() + p2.clone();
+        assert_eq!(s, Point::identity(a, b));
     }
 }
