@@ -155,25 +155,20 @@ mod tests {
 
     #[test]
     fn create_point() {
-        let x = Some(BigInt::from(-1));
-        let y = Some(BigInt::from(-1));
-        let a = BigInt::from(5);
-        let b = BigInt::from(7);
-
+        let (x, y, a, b) = (
+            BigInt::from(-1),
+            BigInt::from(-1),
+            BigInt::from(5),
+            BigInt::from(7),
+        );
         let p = Point::new(x.clone(), y.clone(), a.clone(), b.clone());
-        assert!(p.is_some());
+        assert_eq!(p, Point::OnCurve(x, y, a, b));
     }
 
     #[test]
     fn point_addition_with_identity() {
         let (a, b) = (BigInt::from(5), BigInt::from(7));
-        let p1 = Point::new(
-            Some(BigInt::from(-1)),
-            Some(BigInt::from(-1)),
-            a.clone(),
-            b.clone(),
-        )
-        .unwrap();
+        let p1 = Point::new(BigInt::from(-1), BigInt::from(-1), a.clone(), b.clone());
         let id = Point::identity(a, b);
         let s1 = p1.clone() + id.clone();
         let s2 = id + p1.clone();
@@ -184,21 +179,34 @@ mod tests {
     #[test]
     fn point_additive_inverse() {
         let (a, b) = (BigInt::from(5), BigInt::from(7));
-        let p1 = Point::new(
-            Some(BigInt::from(-1)),
-            Some(BigInt::from(-1)),
-            a.clone(),
-            b.clone(),
-        )
-        .unwrap();
-        let p2 = Point::new(
-            Some(BigInt::from(-1)),
-            Some(BigInt::from(1)),
-            a.clone(),
-            b.clone(),
-        )
-        .unwrap();
+        let p1 = Point::new(BigInt::from(-1), BigInt::from(-1), a.clone(), b.clone());
+        let p2 = Point::new(BigInt::from(-1), BigInt::from(1), a.clone(), b.clone());
+
         let s = p1.clone() + p2.clone();
         assert_eq!(s, Point::identity(a, b));
+    }
+
+    #[test]
+    fn test_point_addition() {
+        // curve y^2 = x^3 + 5*x + 7
+        // a = 5, b = 7
+        let (a, b) = (5, 7);
+        let p = Point::new(
+            BigInt::from(-1),
+            BigInt::from(-1),
+            BigInt::from(a),
+            BigInt::from(b),
+        );
+
+        let mut res = p.clone() + p.clone();
+        assert_eq!(res, Point::Infinity(BigInt::from(a), BigInt::from(b)));
+        let p1 = Point::new(
+            BigInt::from(2),
+            BigInt::from(5),
+            BigInt::from(a),
+            BigInt::from(b),
+        );
+        res = p1 + p;
+        assert_eq!(res, Point::Infinity(BigInt::from(a), BigInt::from(b)));
     }
 }

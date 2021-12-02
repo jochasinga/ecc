@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use num::{BigUint, ToPrimitive};
-use std::marker::Copy;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(PartialOrd, Ord, PartialEq, Clone, Eq, Debug, Hash)]
